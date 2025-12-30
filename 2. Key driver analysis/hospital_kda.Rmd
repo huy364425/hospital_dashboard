@@ -93,8 +93,6 @@ Bar chart
 
 ggplot(hosp_pivot, aes(x=star_rating)) + geom_bar()
 
-?ggplot
-
 ```
 
 DATA MODELING:

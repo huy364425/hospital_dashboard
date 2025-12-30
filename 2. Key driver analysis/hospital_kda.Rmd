@@ -1,0 +1,140 @@
+---
+title: "R Notebook"
+output: html_notebook
+---
+
+Load library
+
+```{r}
+library(tidyverse)
+library(ggplot2)
+library(corrplot)
+library(relaimpo) #package for Relative Importance Analysis
+```
+
+Open the hospital dataset
+
+```{r}
+hospital_raw <- read.csv("/Users/huywork/Desktop/Analytics/Project - Hospital Survey/Github - HCAHPS/2. Key driver analysis/r_dataset.csv", header = TRUE, na.strings = c("Not Applicable", "", "Not Available"))
+```
+
+Data manipulation
+
+```{r}
+hospital <- hospital_raw %>%
+  # remove the unnecessary columns
+  select(-c("Facility.Name", "City.Town", "Address", "Telephone.Number",
+            "HCAHPS.Answer.Percent", "County.Parish", "ZIP.Code",
+            "HCAHPS.Answer.Percent.Footnote", "HCAHPS.Linear.Mean.Value",
+            "Number.of.Completed.Surveys.Footnote",
+            "Survey.Response.Rate.Percent",
+            "Survey.Response.Rate.Percent.Footnote",
+            "Start.Date", "End.Date",
+            "Patient.Survey.Star.Rating.Footnote")) %>%
+  # rename columns
+  rename(
+    fac_id = Facility.ID,
+    state = State,
+    measure_id = HCAHPS.Measure.ID,
+    question = HCAHPS.Question,
+    description = HCAHPS.Answer.Description,
+    star_rating = Patient.Survey.Star.Rating,
+    completed_surveys = Number.of.Completed.Surveys
+  ) %>%
+  # drop rows with blank star rating
+  drop_na("star_rating") %>%
+  # extract Category from "description" column & trim
+  mutate(category = str_trim(str_extract(description, "^[^-]+")))
+
+hosp <- hospital %>%
+  # format each column
+  mutate(
+    state = as.factor(state),
+    measure_id = as.factor(measure_id),
+    category = as.factor(category)
+  ) %>%
+  # remove question and description columns
+  select(-c("question", "description"))
+
+summary(hosp)
+```
+
+Pivot data for analysis
+
+```{r}
+
+hosp_pivot <- hosp %>%
+  pivot_wider(id_cols = "fac_id", names_from = "category",
+              values_from = "star_rating")
+
+hosp_pivot <- hosp_pivot %>%
+  # remove fac_id
+  select(-c("fac_id","Recommend hospital", "Summary star rating"))
+
+```
+
+Exploratory Data Analysis
+All factors have positive correlation with Overall hospital rating
+- Strongest: Care transition & Nurse communication
+- Weakest: Quietness & Cleanliness
+
+```{r}
+
+cor(hosp_pivot)
+
+# Create a correlation plot to check for multi-collinearity
+corrplot(cor(hosp_pivot), method = "ellipse")
+
+```
+
+Bar chart
+
+```{r}
+
+ggplot(hosp_pivot, aes(x=star_rating)) + geom_bar()
+
+?ggplot
+
+```
+
+DATA MODELING:
+Building linear regression model
+- Strong model (explains 76% of Overall satisfaction)
+- Care transition has the strongest effect
+- "Communication about medicines" has the weakest effect
+
+Insights:
+“Improving Care Transition processes delivers the largest lift in hospital rating. Communication about Medicines has no reliable impact.”
+
+```{r}
+
+hosp.model <- lm(`Overall hospital rating` ~ . , data = hosp_pivot)
+
+summary(hosp.model)
+
+```
+
+Conduct Relative Importance Analysis (Shapley value regression)
+- High-impact: Care Transition > Nurse Communication > Doctor Communication > Communication about medicines
+- Moderate-impact: Staff responsiveness > Discharge information
+- Low-impact: Quietness > Cleanliness
+
+```{r}
+
+calc.relimp(hosp.model)
+
+# Metrics are normalized to sum to 100%
+calc.relimp(hosp.model, rela = TRUE)
+```
+
+Bootstrap relative importance
+
+```{r}
+set.seed(123)
+
+bootresults <- boot.relimp(hosp.model, type="lmg" ,b=1000)
+ci<-booteval.relimp(bootresults, norank=T)
+ci
+
+```
+

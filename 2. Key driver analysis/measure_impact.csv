@@ -1,0 +1,9 @@
+﻿measureid,measure_category,impact_level
+H_CLEAN_STAR_RATING,Room cleanliness,Low
+H_COMP_1_STAR_RATING,Nurse communication,High
+H_COMP_2_STAR_RATING,Doctor communication,High
+H_COMP_3_STAR_RATING,Staff responsiveness,Moderate
+H_COMP_5_STAR_RATING,Med communication,High
+H_COMP_6_STAR_RATING,Discharge information,Moderate
+H_COMP_7_STAR_RATING,Care transition,High
+H_QUIET_STAR_RATING,Quietness,Low
